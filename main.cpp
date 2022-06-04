@@ -1,6 +1,8 @@
 #include "PZEM004Tv30.h"
 
-PZEM004Tv30 pzem("/dev/ttyUSB0");
+char port[] = "/dev/ttyUSB0";
+
+PZEM004Tv30 pzem(port);
 
 float voltage, current, power, energy, frequency, pf;
 
@@ -8,6 +10,7 @@ int main()
 {
     while (1)
     {
+        delay(2000);
         // Read the data from the sensor
         voltage = pzem.voltage();
         current = pzem.current();
@@ -34,7 +37,6 @@ int main()
         printf("PF: %.2f\n", pf);
 
         printf("--------------------------------------\n");
-        delay(2000);
     }
     return 1;
 }
