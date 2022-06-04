@@ -29,10 +29,9 @@ int main()
         printf("Wh;\n");
 
         printf("frequency: %.2f", frequency);
-        printf("Wh;\n");
+        printf("Hz;\n");
 
-        printf("PF: %.2f", pf);
-        printf("Wh;\n");
+        printf("PF: %.2f\n", pf);
 
         printf("--------------------------------------\n");
         delay(2000);

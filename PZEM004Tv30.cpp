@@ -611,8 +611,8 @@ void PZEM004Tv30::search(){
             continue;
         } else {
 
-            Serial.print("Device on addr: ");
-            Serial.println(addr);
+            // Serial.print("Device on addr: ");
+            // Serial.println(addr);
         }
     }
 #endif
