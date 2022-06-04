@@ -38,7 +38,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <cmath.h>
+#include <limits.h>
 #include <wiringPi.h>
 #include <wiringSerial.h>
 
