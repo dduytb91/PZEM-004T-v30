@@ -1,40 +1,41 @@
 #include "PZEM004Tv30.h"
 
-unsigned char ip[4] = {192, 168, 1, 1};
+PZEM004Tv30 pzem("/dev/ttyUSB0");
+
+float voltage, current, power, energy, frequency, pf;
 
 int main()
 {
-    PZEM004T_Init("/dev/ttyS0");
-
     while (1)
     {
-        float v = PZEM004T_voltage(ip);
-        if (v < 0.0)
-            v = 0.0;
-        printf("voltage: %.2f", v);
+        // Read the data from the sensor
+        voltage = pzem.voltage();
+        current = pzem.current();
+        power = pzem.power();
+        energy = pzem.energy();
+        frequency = pzem.frequency();
+        pf = pzem.pf();
+
+        printf("voltage: %.2f", voltage);
         printf("V;\n");
 
-        float i = PZEM004T_current(ip);
-        if (i >= 0.0)
-        {
-            printf("current: %.2f", i);
-            printf("A;\n");
-        }
+        printf("current: %.2f", current);
+        printf("A;\n");
 
-        float p = PZEM004T_power(ip);
-        if (p >= 0.0)
-        {
-            printf("power: %.2f", p);
-            printf("W;\n");
-        }
+        printf("power: %.2f", power);
+        printf("W;\n");
 
-        float e = PZEM004T_energy(ip);
-        if (e >= 0.0)
-        {
-            printf("energy: %.2f", e);
-            printf("Wh;\n");
-        }
+        printf("energy: %.2f", energy);
+        printf("Wh;\n");
+
+        printf("frequency: %.2f", frequency);
+        printf("Wh;\n");
+
+        printf("PF: %.2f", pf);
+        printf("Wh;\n");
+
         printf("--------------------------------------\n");
+        delay(2000);
     }
     return 1;
 }

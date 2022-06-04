@@ -21,7 +21,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
 #include "PZEM004Tv30.h"
-#include <stdio.h>
 
 #define REG_VOLTAGE     0x0000
 #define REG_CURRENT_L   0x0001
@@ -51,80 +50,18 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #define INVALID_ADDRESS 0x00
 
-
-#if defined(PZEM004_SOFTSERIAL)
-/*!
- * PZEM004Tv30::PZEM004Tv30
- *
- * Software Serial constructor (WARNING: Will be deprecated)
- *
- * @param receivePin RX pin
- * @param transmitPin TX pin
- * @param addr Slave address of device
-*/
-PZEM004Tv30::PZEM004Tv30(uint8_t receivePin, uint8_t transmitPin, uint8_t addr)
-{
-    localSWserial = new SoftwareSerial(receivePin, transmitPin); // We will need to clean up in destructor
-    localSWserial->begin(PZEM_BAUD_RATE);
-
-    init((Stream *)localSWserial, true, addr);
-}
-
-/*!
- * PZEM004Tv30::PZEM004Tv30
- *
- * Software Serial constructor for SoftwareSerial instance
- *
- * @param port Software serial port instance
- * @param addr Slave address of device
-*/
-PZEM004Tv30::PZEM004Tv30(SoftwareSerial& port, uint8_t addr)
-{
-    port.begin(PZEM_BAUD_RATE);
-    init((Stream *)&port, true, addr);
-}
-
-/*!
- * PZEM004Tv30::PZEM004Tv30
- *
- * Software Serial constructor for Stream instance
- *
- * @param port Stream instance
- * @param addr Slave address of device
-*/
-PZEM004Tv30::PZEM004Tv30(Stream& port, uint8_t addr)
-{
-    init(&port, true, addr);
-}
-
-#endif
-
 /*!
  * PZEM004Tv30::PZEM004Tv30
  *
  * Hardware serial constructor
  *
- * @param port Hardware serial to use
- * @param receivePin (Only ESP32) receive Pin to use
- * @param transmitPin (Only ESP32) transmit Pin to use
+ * @param device Hardware serial to use
  * @param addr Slave address of device
 */
-#if defined(ESP32)
-
-PZEM004Tv30::PZEM004Tv30(HardwareSerial& port, uint8_t receivePin, uint8_t transmitPin, uint8_t addr)
+PZEM004Tv30::PZEM004Tv30(char *device, uint8_t addr)
 {
-    port.begin(PZEM_BAUD_RATE, SERIAL_8N1, receivePin, transmitPin);
-    init((Stream *)&port, false, addr);
+    init(device, addr);
 }
-#else
-
-
-PZEM004Tv30::PZEM004Tv30(HardwareSerial& port, uint8_t addr)
-{
-    port.begin(PZEM_BAUD_RATE);
-    init((Stream *)&port, false, addr);
-}
-#endif
 
 /*!
  * PZEM004Tv30::~PZEM004Tv30
@@ -134,14 +71,6 @@ PZEM004Tv30::PZEM004Tv30(HardwareSerial& port, uint8_t addr)
 */
 PZEM004Tv30::~PZEM004Tv30()
 {
-    // TODO: Remove local SW serial
-    // This is not the correct way to do it. 
-    // Best solution would be to completely remove local SW serial instance and not deal with it.
-#if defined(PZEM004_SOFTSERIAL)
-    if(this->localSWserial != nullptr){
-        delete this->localSWserial;
-    }
-#endif
 }
 
 /*!
@@ -372,13 +301,22 @@ bool PZEM004Tv30::getPowerAlarm()
  *
  * @return success
 */
-void PZEM004Tv30::init(Stream* port, bool isSoft, uint8_t addr){
+void PZEM004Tv30::init(char *device, uint8_t addr){
     if(addr < 0x01 || addr > 0xF8) // Sanity check of address
         addr = PZEM_DEFAULT_ADDR;
     _addr = addr;
 
-    this->_serial = port;
-    this->_isSoft = isSoft;
+    if((_fd = serialOpen (device, PZEM_BAUD_RATE)) < 0 )
+    {
+        // printf("serialOpen ERROR.\n");
+    }
+    if (wiringPiSetup() == -1)
+    {
+        // printf("wiringPiSetup ERROR.\n");
+    }
+    // printf("serial Open OK.\n");
+    // serialPuts(_fd, "serial Open OK.\n");
+    // serialFlush(_fd);
 
     // Set initial lastRed time so that we read right away
     _lastRead = -1;
@@ -407,7 +345,7 @@ bool PZEM004Tv30::updateValues()
         return true;
     }
 
-    DEBUGLN("Updating Values");
+    // DEBUGLN("Updating Values");
 
 
     // Read 10 registers starting at 0x00 (no check)
@@ -487,7 +425,15 @@ bool PZEM004Tv30::sendCmd8(uint8_t cmd, uint16_t rAddr, uint16_t val, bool check
 
     setCRC(sendBuffer, 8);                   // Set CRC of frame
 
-    _serial->write(sendBuffer, 8); // send frame
+    //_serial->write(sendBuffer, 8); // send frame
+    while (serialDataAvail(_fd))
+        serialFlush(_fd);
+
+    for (i = 0; i < 8; i++)
+    {
+        fflush(stdout);
+        serialPutchar(_fd, sendBuffer[i]);
+    }
 
     if(check) {
         if(!receive(respBuffer, 8)){ // if check enabled, read the response
@@ -516,22 +462,15 @@ bool PZEM004Tv30::sendCmd8(uint8_t cmd, uint16_t rAddr, uint16_t val, bool check
 */
 uint16_t PZEM004Tv30::receive(uint8_t *resp, uint16_t len)
 {
-      //* This has to only be enabled for Software serial
-    #if defined(PZEM004_SOFTSERIAL)
-        if(_isSoft)
-            ((SoftwareSerial *)_serial)->listen(); // Start software serial listen
-    #endif
     unsigned long startTime = millis(); // Start time for Timeout
     uint8_t index = 0; // Bytes we have read
     while((index < len) && (millis() - startTime < READ_TIMEOUT))
     {
-        if(_serial->available() > 0)
+        if(serialDataAvail(_fd))
         {
-            uint8_t c = (uint8_t)_serial->read();
-
+            uint8_t c = (uint8_t)serialGetchar(_fd);
             resp[index++] = c;
         }
-        yield();	// do background netw tasks while blocked for IO (prevents ESP watchdog trigger)
     }
 
     // Check CRC with the number of bytes read
