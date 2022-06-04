@@ -176,7 +176,15 @@ bool PZEM004Tv30::resetEnergy(){
     buffer[0] = _addr;
 
     setCRC(buffer, 4);
-    _serial->write(buffer, 4);
+    //_serial->write(buffer, 4);
+    while (serialDataAvail(_fd))
+        serialFlush(_fd);
+
+    for (uint8_t i = 0; i < 4; i++)
+    {
+        fflush(stdout);
+        serialPutchar(_fd, buffer[i]);
+    }
 
     uint16_t length = receive(reply, 5);
 
@@ -425,11 +433,10 @@ bool PZEM004Tv30::sendCmd8(uint8_t cmd, uint16_t rAddr, uint16_t val, bool check
 
     setCRC(sendBuffer, 8);                   // Set CRC of frame
 
-    //_serial->write(sendBuffer, 8); // send frame
     while (serialDataAvail(_fd))
         serialFlush(_fd);
 
-    for (i = 0; i < 8; i++)
+    for (uint8_t i = 0; i < 8; i++)
     {
         fflush(stdout);
         serialPutchar(_fd, sendBuffer[i]);
@@ -525,7 +532,7 @@ void PZEM004Tv30::setCRC(uint8_t *buf, uint16_t len){
 
 
 // Pre computed CRC table
-static const uint16_t crcTable[] PROGMEM = {
+static const uint16_t crcTable[] = {
     0X0000, 0XC0C1, 0XC181, 0X0140, 0XC301, 0X03C0, 0X0280, 0XC241,
     0XC601, 0X06C0, 0X0780, 0XC741, 0X0500, 0XC5C1, 0XC481, 0X0440,
     0XCC01, 0X0CC0, 0X0D80, 0XCD41, 0X0F00, 0XCFC1, 0XCE81, 0X0E40,
@@ -575,13 +582,13 @@ static const uint16_t crcTable[] PROGMEM = {
 uint16_t PZEM004Tv30::CRC16(const uint8_t *data, uint16_t len)
 {
     uint8_t nTemp; // CRC table index
-    uint16_t crc = 0xFFFF; // Default value
+    uint16_t crc = 0xFFFF; // Default value\
 
     while (len--)
     {
         nTemp = *data++ ^ crc;
         crc >>= 8;
-        crc ^= (uint16_t)pgm_read_word(&crcTable[nTemp]);
+        crc ^= crcTable[nTemp];
     }
     return crc;
 }
